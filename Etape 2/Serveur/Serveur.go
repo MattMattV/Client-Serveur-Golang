@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"strconv"
 )
 
 func checkError(err error) {
@@ -35,6 +37,12 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
+
+	maxClients, err := strconv.Atoi(os.Getenv("MAX_CLIENTS"))
+	checkError(err)
+
+	fmt.Printf("Nombre maximal de connexions : %d", maxClients)
+
 
 	ln, err := net.Listen("tcp", ":8080")
 	checkError(err)

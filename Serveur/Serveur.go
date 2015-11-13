@@ -7,31 +7,46 @@ import (
 	"net"
 )
 
-func verifErreur(err error) {
+func checkError(err error) {
 	if err != nil {
 		log.Panicf("Une erreur est survenue : \n\t%v", err)
 	}
 }
 
+
 func handleConnection(conn net.Conn) {
 
 	var message string
-	var decoder = gob.NewDecoder(conn)
 
-	decoder.Decode(&message)
-	fmt.Printf("Le client dit : %s\n", message)
+	var iterations = 1
+	var decoder    = gob.NewDecoder(conn)
+	var encoder    = gob.NewEncoder(conn)
+
+	for {
+		
+		checkError(decoder.Decode(&message))
+		fmt.Printf("[%d] Le client dit : %s\n", iterations, message)
+
+		checkError(encoder.Encode(message))
+		fmt.Printf("[%d] Message envoyé %s\n",iterations, message)
+
+		iterations++
+	}
 }
 
 func main() {
 
 	ln, err := net.Listen("tcp", ":8080")
-	verifErreur(err)
+	checkError(err)
 	fmt.Println("Socket d'écoute créé")
+
+	defer fmt.Println("Le serveur est fermé.")
+	defer ln.Close()
 
 	for {
 		
 		conn, err := ln.Accept()
-		verifErreur(err)
+		checkError(err)
 		
 		fmt.Println("Connexion détectée")
 

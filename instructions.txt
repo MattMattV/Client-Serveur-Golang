@@ -1,0 +1,3 @@
+1) Serveur en attente
+2) Client -> Serveur
+3) Serveur -> Client

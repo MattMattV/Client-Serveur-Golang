@@ -4,10 +4,6 @@ import (
 	
 )
 
-func newConnection() {
-
-}
-
 func main() {
 
 }

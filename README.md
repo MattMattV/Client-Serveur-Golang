@@ -12,5 +12,5 @@ Quant au serveur il reçoit le message et l'affiche.
 ### [Etape 2](https://github.com/Mistermatt007/Client-Serveur-golang/commit/3f63f71afb1a6cd9cd0e3f0b5123494cc950017c)
 Maintenant le client envoie un message que l'utilisateur aura saisi au serveur qui l'affiche puis ils s'envoient ce même message à l'infini.
 
-### Etape 3
+### [Etape 3](https://github.com/Mistermatt007/Client-Serveur-Golang/commit/5c70b360d1ddfafb248658f3cdaa55ca268a45ec)
 Le serveur doit maintenant accepter un certain nombre de clients défini par une variable d'environnement, le serveur donne un numéro à chaque client et leur envoie. Le client ne fait qu'afficher ce numéro.

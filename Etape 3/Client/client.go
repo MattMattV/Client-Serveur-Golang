@@ -13,11 +13,28 @@ func checkError(err error) {
 	}
 }
 
+func receiveMessage(conn net.Conn, isFinished chan bool) {
+
+	var message string
+
+	decoder := gob.NewDecoder(conn)
+
+	for {
+		
+		decoder.Decode(&message)
+		fmt.Println(message)
+
+		if message == "BROADCAST" {
+			isFinished <- true
+		}
+	}
+}
+
 func main() {
 
 	var message string
 
-	var iterations = 1
+	isFinished := make(chan bool)
 
 	fmt.Println("Lancement du client")
 
@@ -25,28 +42,19 @@ func main() {
 	checkError(err)
 	
 	encoder := gob.NewEncoder(conn)
-	decoder := gob.NewDecoder(conn)
 
 	fmt.Println("Connexion réussie")
 
-	fmt.Println("Entrez le message à envoyer :")
-
+	fmt.Println("Entrez votre identifiant :")
 	fmt.Scanln(&message)
 
-	err = encoder.Encode(message)
-	checkError(err)
-
+	// envoi du nom
+	checkError(encoder.Encode(message))
 	fmt.Println("Le message à bien été envoyé.")
 
-	for {
+	go receiveMessage(conn, isFinished)
+	
+	<-isFinished
 
-		decoder.Decode(&message)
-		fmt.Printf("[%d] Le serveur dit : %s\n", iterations, message)
-
-		checkError(encoder.Encode(message))
-
-		fmt.Printf("[%d] Envoyé : %s\n", iterations, message)
-
-		iterations++
-	}
+	fmt.Println("Le client va quitter...")
 }

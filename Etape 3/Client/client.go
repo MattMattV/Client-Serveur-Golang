@@ -3,8 +3,15 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
+	"strings"
 	"log"
+	"math/rand"
 	"net"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 )
 
 func checkError(err error) {
@@ -13,7 +20,7 @@ func checkError(err error) {
 	}
 }
 
-func receiveMessage(conn net.Conn, isFinished chan bool) {
+func receiveMessage(conn net.Conn) {
 
 	var message string
 
@@ -22,19 +29,18 @@ func receiveMessage(conn net.Conn, isFinished chan bool) {
 	for {
 		
 		decoder.Decode(&message)
-		fmt.Println(message)
+		fmt.Printf("SERVEUR : %s\n", message)
 
-		if message == "BROADCAST" {
-			isFinished <- true
+		if strings.Contains(message, "plein") {
+			os.Exit(1)
 		}
 	}
 }
 
 func main() {
 
-	var message string
-
-	isFinished := make(chan bool)
+	signalCatcher := make(chan os.Signal, 1)
+	signal.Notify(signalCatcher, syscall.SIGINT, syscall.SIGTERM)
 
 	fmt.Println("Lancement du client")
 
@@ -45,16 +51,27 @@ func main() {
 
 	fmt.Println("Connexion réussie")
 
-	fmt.Println("Entrez votre identifiant :")
-	fmt.Scanln(&message)
+	//fmt.Println("Entrez votre identifiant :")
+	//fmt.Scanln(&message)
+
+	//Génération d'un entier qui est transformé en string pour servir d'identifiant
+	source        := rand.NewSource(time.Now().UnixNano())
+	randGenerator := rand.New(source)
+
+	message := strconv.Itoa(randGenerator.Int())
+
+	fmt.Printf("Je suis : %s\n", message)
 
 	// envoi du nom
 	checkError(encoder.Encode(message))
 	fmt.Println("Le message à bien été envoyé.")
 
-	go receiveMessage(conn, isFinished)
+	go receiveMessage(conn)
 	
-	<-isFinished
+	if <-signalCatcher == syscall.SIGINT {
+		encoder.Encode("DISCONNECT")
+		fmt.Println("\n\nLe client va quitter...")
+		return
+	}
 
-	fmt.Println("Le client va quitter...")
 }

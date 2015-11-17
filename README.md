@@ -17,3 +17,5 @@ Le serveur doit maintenant accepter un certain nombre de clients défini par une
 
 ### [Etape 3 bis](https://github.com/Mistermatt007/Client-Serveur-Golang/commit/a41703ef2a830aa6d1b02eb6c8da10cbb00c8056)
 Le serveur doit fonctionner de façon continue et doit savoir gérer les clients qui se déconnectent pour accueillir de nouveau clients. Le code doit être plus commenté, plus facile à lire.
+
+Faire en sorte que le clients se débrouillent seuls, par exemple, ils ouvrent un connexion, essaient de dialoguer avec le serveur et ferment la connexion, ceci un certain nombre de fois afin de simuler de vrai clients et ainsi mieux tester le serveur.

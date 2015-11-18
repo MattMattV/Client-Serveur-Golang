@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type Client struct {
@@ -22,43 +23,73 @@ func checkError(err error) {
 	}
 }
 
-func handleConnection(conn net.Conn, chName chan string, chStatus chan net.Conn) {
+func handleConnection(conn net.Conn, mapClient map[string]net.Conn) {
 
-	var message string
+	var message, id string
 
-	//ces deux variables vont permttre de dialoguer avec le client
+	// le mutex va servir à empêcher les autres goroutines d'accéder à la map
+	// de la même façon que des sémaphores en C
+	var mutex = &sync.Mutex{}
+
+	// pour pouvoir recevoir les messages du client
 	var decoder = gob.NewDecoder(conn)
 	
-
+	//réception du nom du client
 	checkError(decoder.Decode(&message))
-	fmt.Printf("New client : %s\n", message)
+	
+	id = message
 
-	// on envoie le message dans le main pour que le tableau
-	// de Client soit complété
-	chName <- message
+	fmt.Printf("GOROUTINE : New client : %s\n", id)
 
-	sendMessage("Vous êtes bien connecté", conn)
+	mutex.Lock()
+	mapClient[id] = conn
+	mutex.Unlock()
 
-	//on récupere le signal de déconnexion pour que le main puisse supprimer le client
+	sendMessage("GOROUTINE : Vous êtes bien connecté", conn)
+
+	// on récupere le signal de déconnexion pour que le main puisse supprimer le client
 	for {
+		checkError(decoder.Decode(&message))
 
 		if message == "DISCONNECT" {
-			chStatus <- conn
-		} else {
-			chStatus <- nil
-		}
-		
-		checkError(decoder.Decode(&message))
+			
+			mutex.Lock()
+			fmt.Println("AVANT\n")
+			for key, value := range mapClient {
+				fmt.Printf("[%s] -> %v\n", key, value)
+			}
+			mutex.Unlock()
+
+			mutex.Lock()
+			delete(mapClient, id)
+			fmt.Printf("Client %s déconnecté\n", id)
+			mutex.Unlock()
+
+			mutex.Lock()
+			fmt.Println("APRES")
+			for key, value := range mapClient {
+				fmt.Printf("[%s] -> %v\n", key, value)
+			}
+			fmt.Println()
+			mutex.Unlock()
+
+			return
+		}		
 	}
 }
 
-func broadcast(message string, mapClient map[string]net.Conn,) {
+func broadcast(message string, mapClient map[string]net.Conn) {
 
+	var mutex = sync.Mutex{}
+
+	mutex.Lock()
 	for key, value := range mapClient {
 
 		sendMessage("BROADCAST !!\n\t" + message, value)
 		fmt.Printf("\tEnvoi vers %s\n", key)
 	}
+
+	mutex.Unlock()
 }
 
 func sendMessage(message string, conn net.Conn) {
@@ -70,20 +101,16 @@ func sendMessage(message string, conn net.Conn) {
 
 func main() {
 
-	//variables
-	var nbConnected = 0
-
-	var chName      = make(chan string)
-	var chStatus    = make(chan net.Conn)
+	// variable
 	var mapClient   = make(map[string]net.Conn)
 
-	//on vérifie la présence de la variable d'environnement
+	// on vérifie la présence de la variable d'environnement
 	maxClients, err := strconv.Atoi(os.Getenv("MAX_CLIENTS"))
 	checkError(err)
 
 	fmt.Printf("\nMaximal connections : %d\n\n", maxClients)
 	
-	//le serveur écoute sur le port 8080 avec le protocole TCP
+	// le serveur écoute sur le port 8080 avec le protocole TCP
 	ln, err := net.Listen("tcp", ":8080")
 	checkError(err)
 
@@ -91,67 +118,29 @@ func main() {
 
 	for {
 		
-		fmt.Println("debut attente")
 		conn, err := ln.Accept()
 		checkError(err)
-		fmt.Println("fin attente")
 
-		
-		//on ajoute un client seulement si il y a de place
-		if nbConnected < maxClients {
+		// on ajoute un client seulement si il y a de place
+		if len(mapClient) < maxClients {
 			
-			//on crée une goroutine pour accepter plusieurs clients
-			go handleConnection(conn, chName, chStatus) 
+			// on crée une goroutine pour accepter plusieurs clients en même temps
+			go handleConnection(conn, mapClient) 
 			
-			//la gouroutine assiciée à un client va envoyer l'identifiant pour que l'on puisse l'enregistrer dans une map
-			id := <-chName
-			mapClient[id] = conn
-			nbConnected++
-
 		} else {
 
-			//on envoie un message au client pour qu'il sache que le serveur est plein
+			// on envoie un message au client pour qu'il sache que le serveur est plein
 			sendMessage("Impossible de se connecter, serveur plein", conn)
-			
-			fmt.Println("debut attente")
-			conn, err = ln.Accept()
-			checkError(err)
-			fmt.Println("fin attente")
 		}
-	}
 
-	fmt.Printf("1 : nbConnected %d/%d\n", nbConnected, maxClients)
-	//on recupère un signal de déconnexion pour faire de la place pour un autre client
-	var status = <-chStatus
-	fmt.Println("DEBUG | status", status)
-	if status != nil {
+		fmt.Printf("capacité : %d/%d\n", len(mapClient), maxClients)
 		
-		//on recherche l'Id associé à l'objet net.Conn que la goroutine à envoyé dans status
-		for key, value := range mapClient {
-
-			fmt.Printf("DEBUG | key: %s, value: %v\n", key, value)
-
-			if(value == status) {
-
-				fmt.Printf("Suppression du client %s... ", key)
-				delete(mapClient, key)
-				fmt.Printf("TERMINE\n\n")
-				nbConnected 
-			}
-	}
-
-	//on dit à tout le monde que le serveur est plein
-	if nbConnected == maxClients {
-		fmt.Println("Server full !")
-		broadcast("Server is full !", mapClient)
-	}
-
-		fmt.Println("affich encore")
-		for key, value := range mapClient {
-			
-			fmt.Printf("DEBUG | key: %s, value: %v\n", key, value)
+		// on dit à tout le monde que le serveur est plein
+		if len(mapClient) == maxClients {
+			fmt.Println("Server full !")
+			broadcast("Server is full !", mapClient)
 		}
+
+		//time.Sleep(time.Second)		
 	}
-	
-	fmt.Printf("2 : nbConnected %d/%d\n\n", nbConnected, maxClients)
 }

@@ -47,7 +47,7 @@ func main() {
 
 		//Génération d'un entier qui est transformé en string pour servir d'identifiant
 		message := strconv.Itoa(randGenerator.Intn(123456))
-		fmt.Printf("Je suis : %s\n", message)
+		fmt.Printf("Je suis : %s | %v\n", message, conn.LocalAddr())
 
 		checkError(encoder.Encode(message))
 		
@@ -62,7 +62,7 @@ func main() {
 		time.Sleep(time.Duration(msSleepTime) * time.Millisecond)
 		
 		checkError(encoder.Encode("DISCONNECT"))
-		conn.Close()
+		fmt.Println("Deconnecté")
 
 		fmt.Println("\n")
 	}

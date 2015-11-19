@@ -23,6 +23,20 @@ func checkError(err error) {
 	}
 }
 
+func printMapClient(mapClient map[string]net.Conn) {
+
+	var mutex = sync.Mutex{}
+	
+	for key, value := range mapClient {
+
+		mutex.Lock()
+
+		fmt.Printf("[%s] -> %v\n", key, value.RemoteAddr())
+
+		mutex.Unlock()
+	}
+}
+
 func handleConnection(conn net.Conn, mapClient map[string]net.Conn) {
 
 	var message, id string
@@ -39,13 +53,13 @@ func handleConnection(conn net.Conn, mapClient map[string]net.Conn) {
 	
 	id = message
 
-	fmt.Printf("GOROUTINE : New client : %s\n", id)
+	fmt.Printf("G : New client : %s\n", id)
 
 	mutex.Lock()
 	mapClient[id] = conn
 	mutex.Unlock()
 
-	sendMessage("GOROUTINE : Vous êtes bien connecté", conn)
+	sendMessage("Vous êtes bien connecté", conn)
 
 	// on récupere le signal de déconnexion pour que le main puisse supprimer le client
 	for {
@@ -53,26 +67,16 @@ func handleConnection(conn net.Conn, mapClient map[string]net.Conn) {
 
 		if message == "DISCONNECT" {
 			
-			mutex.Lock()
-			fmt.Println("AVANT\n")
-			for key, value := range mapClient {
-				fmt.Printf("[%s] -> %v\n", key, value)
-			}
-			mutex.Unlock()
+			fmt.Println("G : AVANT")
+			printMapClient(mapClient)
 
 			mutex.Lock()
 			delete(mapClient, id)
-			fmt.Printf("Client %s déconnecté\n", id)
+			fmt.Printf("G : Client %s déconnecté\n", id)
 			mutex.Unlock()
 
-			mutex.Lock()
-			fmt.Println("APRES")
-			for key, value := range mapClient {
-				fmt.Printf("[%s] -> %v\n", key, value)
-			}
-			fmt.Println()
-			mutex.Unlock()
-
+			fmt.Println("G : APRES")
+			printMapClient(mapClient)
 			return
 		}		
 	}
@@ -108,13 +112,13 @@ func main() {
 	maxClients, err := strconv.Atoi(os.Getenv("MAX_CLIENTS"))
 	checkError(err)
 
-	fmt.Printf("\nMaximal connections : %d\n\n", maxClients)
+	fmt.Printf("\nM : Maximal connections : %d\n\n", maxClients)
 	
 	// le serveur écoute sur le port 8080 avec le protocole TCP
 	ln, err := net.Listen("tcp", ":8080")
 	checkError(err)
 
-	fmt.Println("Listen socket created\n")
+	fmt.Println("M : Listen socket created\n")
 
 	for {
 		
@@ -140,7 +144,5 @@ func main() {
 			fmt.Println("Server full !")
 			broadcast("Server is full !", mapClient)
 		}
-
-		//time.Sleep(time.Second)		
 	}
 }
